@@ -1,0 +1,171 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/*
+ * RawBlock design tokens as CSS variables (FRONTEND-SPEC A2).
+ * These mirror the Tailwind theme tokens so raw CSS / third-party surfaces
+ * (e.g. Clerk's appearance API) can reference the same palette.
+ */
+:root {
+  --color-black: #000000;
+  --color-white: #ffffff;
+  --color-blue: #0000ff;
+
+  --surface-base: #ffffff;
+  --surface-inverted: #000000;
+  --surface-sunken: #f0f0f0;
+  --surface-hover-input: #e8e8e8;
+  --surface-disabled: #f5f5f5;
+
+  --border-disabled: #cccccc;
+
+  --content-primary: #000000;
+  --content-secondary: #000000;
+  --content-tertiary: #cccccc;
+
+  --color-success: #008000;
+  --color-warning: #ffa500;
+  --color-error: #ff0000;
+  --color-info: #0000ff;
+
+  /* Border weights */
+  --border-thin: 1px;
+  --border-thick: 3px;
+  --border-heavy: 5px;
+}
+
+@layer base {
+  html {
+    /* No radius anywhere by default. */
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  body {
+    @apply bg-surface-base font-sans text-body text-content-primary;
+  }
+
+  h1 {
+    @apply font-heading text-h1;
+  }
+  h2 {
+    @apply font-heading text-h2;
+  }
+  h3 {
+    @apply font-heading text-h3;
+  }
+  h4 {
+    @apply font-sans text-h4 font-semibold;
+  }
+
+  /* Blue is reserved for genuine hyperlinks only (RawBlock rule 4). */
+  a {
+    @apply text-blue underline;
+  }
+
+  /* Reinforce: no rounded corners, no shadows on any element in the shell. */
+  *,
+  *::before,
+  *::after {
+    box-shadow: none !important;
+  }
+}
+
+/*
+ * Rendered-document reading surface (T-033). RawBlock: body type, blue links,
+ * mono code, 3px-bordered tables. No radius, no shadow.
+ */
+.doc-prose {
+  line-height: 1.6;
+}
+.doc-prose h1 {
+  font-family: var(--font-archivo);
+  font-size: 40px;
+  line-height: 1.05;
+  margin: 2rem 0 1rem;
+}
+.doc-prose h2 {
+  font-family: var(--font-archivo);
+  font-size: 28px;
+  line-height: 1.1;
+  margin: 1.75rem 0 0.75rem;
+}
+.doc-prose h3 {
+  font-family: var(--font-archivo);
+  font-size: 20px;
+  margin: 1.5rem 0 0.5rem;
+}
+.doc-prose h4 {
+  font-weight: 600;
+  font-size: 18px;
+  margin: 1.25rem 0 0.5rem;
+}
+.doc-prose p {
+  margin: 0.75rem 0;
+}
+.doc-prose ul,
+.doc-prose ol {
+  margin: 0.75rem 0;
+  padding-left: 1.5rem;
+}
+.doc-prose ul {
+  list-style: disc;
+}
+.doc-prose ol {
+  list-style: decimal;
+}
+.doc-prose li {
+  margin: 0.25rem 0;
+}
+.doc-prose a {
+  color: var(--color-blue);
+  text-decoration: underline;
+}
+.doc-prose code {
+  font-family: var(--font-space-mono);
+  font-size: 0.9em;
+  background: var(--surface-sunken);
+  padding: 0.1em 0.3em;
+}
+.doc-prose pre {
+  font-family: var(--font-space-mono);
+  background: var(--surface-sunken);
+  border: 3px solid #000;
+  padding: 1rem;
+  overflow-x: auto;
+  margin: 1rem 0;
+}
+.doc-prose pre code {
+  background: transparent;
+  padding: 0;
+}
+.doc-prose blockquote {
+  border-left: 5px solid #000;
+  padding-left: 1rem;
+  margin: 1rem 0;
+}
+.doc-prose table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 1rem 0;
+  display: block;
+  overflow-x: auto;
+}
+.doc-prose th,
+.doc-prose td {
+  border: 3px solid #000;
+  padding: 0.5rem 0.75rem;
+  text-align: left;
+}
+.doc-prose th {
+  font-weight: 600;
+  background: var(--surface-sunken);
+}
+.doc-prose hr {
+  border: none;
+  border-top: 3px solid #000;
+  margin: 1.5rem 0;
+}
+.doc-prose strong {
+  font-weight: 600;
+}
