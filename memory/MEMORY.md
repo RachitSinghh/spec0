@@ -1,1 +1,0 @@
-- [Local dev setup](local-dev-setup.md) — how to run/verify spec0 locally (DB driver, MESH_MOCK, Inngest dev, Clerk test tokens)
