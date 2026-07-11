@@ -36,6 +36,22 @@ export default function MarketingHome() {
             SPEC0
           </span>
           <div className="flex items-center gap-sp-3">
+            <a
+              href="https://github.com/RachitSinghh"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="font-mono text-small uppercase tracking-[1px] text-black underline"
+            >
+              GitHub
+            </a>
+            <a
+              href="https://x.com/rachiitfr"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="font-mono text-small uppercase tracking-[1px] text-black underline"
+            >
+              X
+            </a>
             <Link href="/sign-in">
               <Button variant="secondary">Sign in</Button>
             </Link>
