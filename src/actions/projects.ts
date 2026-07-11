@@ -15,6 +15,7 @@ import {
   createPipelineRun,
   seedPipelineSteps,
   getLatestRunForProject,
+  getStepsForRun,
   updateRunStatus,
   resetStepsForRerun,
 } from "@/db/queries/pipeline";
@@ -175,6 +176,51 @@ export async function regenerate(input: {
     } as const;
     if (run) await sendOrFailRun(run.id, event);
     else await inngest.send(event);
+  }
+
+  revalidatePath(`/projects/${input.projectId}`);
+  return { ok: true };
+}
+
+/**
+ * retryRun: re-fire the latest run after a failure or a lost event (e.g. the
+ * event was emitted before the app was synced with Inngest). PRD runs re-run
+ * all three steps (regenerate semantics, carrying any stashed autoDocs);
+ * add-on runs re-request only the docs that never completed.
+ */
+export async function retryRun(input: { projectId: string }): Promise<{ ok: boolean }> {
+  const user = await requireUser();
+  const project = await getProjectForUser(input.projectId, user.id);
+  if (!project) throw new Error("Project not found.");
+
+  const run = await getLatestRunForProject(input.projectId);
+  if (!run) throw new Error("Nothing to retry.");
+
+  if (run.kind === "prd") {
+    await resetStepsForRerun(run.id, ["research", "draft", "refine"]);
+    await updateRunStatus(run.id, { status: "queued", startedAt: null, completedAt: null });
+    const autoDocs = (run.requestedDocs ?? []) as AddonDocType[];
+    await sendOrFailRun(run.id, {
+      name: "project/prd.requested",
+      data: {
+        projectId: input.projectId,
+        userId: user.id,
+        autoDocs: autoDocs.length ? autoDocs : undefined,
+      },
+    });
+  } else {
+    const steps = await getStepsForRun(run.id);
+    const docs = steps
+      .filter((s) => s.status !== "complete" && s.status !== "skipped")
+      .map((s) => s.agent) as AddonDocType[];
+    if (docs.length > 0) {
+      await resetStepsForRerun(run.id, docs);
+      await updateRunStatus(run.id, { status: "queued", startedAt: null, completedAt: null });
+      await sendOrFailRun(run.id, {
+        name: "project/addons.requested",
+        data: { projectId: input.projectId, userId: user.id, requestedDocs: docs },
+      });
+    }
   }
 
   revalidatePath(`/projects/${input.projectId}`);

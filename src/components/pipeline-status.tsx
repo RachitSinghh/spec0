@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 
 import { cn } from "@/lib/utils";
+import { retryRun } from "@/actions/projects";
 import { StatusChip } from "@/components/ui/chip";
 import { Button } from "@/components/ui/button";
 
@@ -224,6 +225,8 @@ export function PipelineStatus({
   const [data, setData] = React.useState<StatusResponse | null>(initialData ?? null);
   const [log, setLog] = React.useState<string[]>([]);
   const [now, setNow] = React.useState(() => Date.now());
+  const [retrying, setRetrying] = React.useState(false);
+  const [pollEpoch, setPollEpoch] = React.useState(0);
   const refreshedRef = React.useRef(false);
   const prevStatusRef = React.useRef<Record<string, StepStatus>>({});
   const logEndRef = React.useRef<HTMLDivElement>(null);
@@ -292,7 +295,24 @@ export function PipelineStatus({
       active = false;
       clearTimeout(timer);
     };
-  }, [projectId, router, appendTransitions]);
+  }, [projectId, router, appendTransitions, pollEpoch]);
+
+  // Re-fire the latest run (failed or lost event) and resume polling.
+  async function onRetry() {
+    setRetrying(true);
+    try {
+      await retryRun({ projectId });
+      refreshedRef.current = false;
+      setPollEpoch((e) => e + 1);
+    } catch (err) {
+      setLog((l) => [
+        ...l,
+        `[${new Date().toTimeString().slice(0, 8)}] retry failed: ${err instanceof Error ? err.message : "unknown"}`,
+      ]);
+    } finally {
+      setRetrying(false);
+    }
+  }
 
   // Elapsed ticker — only while the run is live.
   const runLive =
@@ -315,6 +335,14 @@ export function PipelineStatus({
   const elapsed = startedAt != null ? (runLive ? now : Date.now()) - startedAt : null;
 
   const retryingStep = runLive && steps.find((s) => s.status === "failed");
+  // Queued for 2+ minutes with nothing started → the event was probably lost
+  // (e.g. emitted before the app was synced with Inngest).
+  const stale =
+    runLive &&
+    steps.length > 0 &&
+    steps.every((s) => s.status === "pending" || s.status === "skipped") &&
+    elapsed != null &&
+    elapsed > 120_000;
   const headline = runningStep
     ? `${AGENT_DESC[runningStep.agent] ?? "Working"}…`
     : retryingStep
@@ -350,12 +378,28 @@ export function PipelineStatus({
         )}
         {!runLive && data?.run && (
           <div className="flex flex-wrap gap-sp-3">
-            <Button onClick={() => router.refresh()}>
-              {data.run.status === "complete" ? "View result" : "Refresh"}
-            </Button>
+            {data.run.status === "failed" ? (
+              <Button onClick={onRetry} disabled={retrying}>
+                {retrying ? "RESTARTING…" : "Try again"}
+              </Button>
+            ) : (
+              <Button onClick={() => router.refresh()}>View result</Button>
+            )}
             <Link href="/dashboard">
               <Button variant="secondary">Go to dashboard</Button>
             </Link>
+          </div>
+        )}
+        {stale && (
+          <div className="flex flex-col gap-sp-3 border-thick border-warning p-sp-3">
+            <p className="font-mono text-small text-warning">
+              Pipeline hasn&apos;t started — the event may have been lost.
+            </p>
+            <div>
+              <Button onClick={onRetry} disabled={retrying}>
+                {retrying ? "RESTARTING…" : "Restart pipeline"}
+              </Button>
+            </div>
           </div>
         )}
       </div>
