@@ -67,6 +67,7 @@ export const runAddonPipeline = inngest.createFunction(
         await updateStepByAgent(runId, agent, {
           status: "running",
           startedAt: new Date(),
+          error: null, // clear any error from a previous attempt
         });
         try {
           let references: ReferenceInput[] | undefined;

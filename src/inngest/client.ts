@@ -11,7 +11,13 @@ import type { ReferenceInput } from "@/agents/types";
  */
 
 type PrdRequested = {
-  data: { projectId: string; userId: string; notes?: string };
+  data: {
+    projectId: string;
+    userId: string;
+    notes?: string;
+    /** Docs pre-selected at intake — PRD pipeline auto-chains into add-ons. */
+    autoDocs?: AddonDocType[];
+  };
 };
 
 type AddonsRequested = {

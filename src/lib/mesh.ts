@@ -43,11 +43,25 @@ export interface MeshGenerateOptions {
   webSearch?: boolean;
 }
 
-// Base provider — plain OpenAI-compatible calls.
+/**
+ * Provider override (temporary): set LLM_BASE_URL + LLM_API_KEY (+ LLM_MODEL
+ * in agents/config) to route all calls to any OpenAI-compatible endpoint
+ * (HF router, Google Gemini, etc.) instead of Mesh. Web search + RAG are
+ * Mesh-only and are disabled under an override.
+ * NOTE: the hackathon requires Mesh — remove the override before demo.
+ */
+const ALT_BASE_URL = process.env.LLM_BASE_URL?.trim();
+const BASE_URL = ALT_BASE_URL || env.MESH_BASE_URL;
+const API_KEY = ALT_BASE_URL ? process.env.LLM_API_KEY ?? "" : env.MESH_API_KEY;
+
+// Base provider — plain OpenAI-compatible calls. supportsStructuredOutputs
+// sends the JSON schema natively via response_format (verified working on
+// both Mesh and the HF router) instead of prompt-injecting it.
 const mesh: OpenAICompatibleProvider = createOpenAICompatible({
   name: "mesh",
-  baseURL: env.MESH_BASE_URL,
-  apiKey: env.MESH_API_KEY,
+  baseURL: BASE_URL,
+  apiKey: API_KEY,
+  supportsStructuredOutputs: true,
 });
 
 /**
@@ -58,8 +72,9 @@ const mesh: OpenAICompatibleProvider = createOpenAICompatible({
 const WEB_SEARCH_BODY = { web_search: true } as const;
 const meshSearch: OpenAICompatibleProvider = createOpenAICompatible({
   name: "mesh-search",
-  baseURL: env.MESH_BASE_URL,
-  apiKey: env.MESH_API_KEY,
+  baseURL: BASE_URL,
+  apiKey: API_KEY,
+  supportsStructuredOutputs: true,
   fetch: async (input, init) => {
     if (init?.body && typeof init.body === "string") {
       try {
@@ -99,7 +114,8 @@ function promptArgs(opts: MeshGenerateOptions): PromptArgs {
 async function runText(
   opts: MeshGenerateOptions,
 ): Promise<MeshResult<string>> {
-  const provider = opts.webSearch ? meshSearch : mesh;
+  // Web search is a Mesh feature — never send its body param elsewhere.
+  const provider = opts.webSearch && !ALT_BASE_URL ? meshSearch : mesh;
   const start = Date.now();
   const common = {
     model: provider(opts.model),
@@ -134,7 +150,7 @@ export async function generateStructured<T>(
   opts: MeshGenerateOptions,
   schema: z.ZodType<T>,
 ): Promise<MeshResult<T>> {
-  const provider = opts.webSearch ? meshSearch : mesh;
+  const provider = opts.webSearch && !ALT_BASE_URL ? meshSearch : mesh;
   const start = Date.now();
   const common = {
     model: provider(opts.model),

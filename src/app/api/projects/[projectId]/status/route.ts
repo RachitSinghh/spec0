@@ -41,7 +41,11 @@ export async function GET(
   const steps = await getStepsForRun(run.id);
 
   return NextResponse.json({
-    run: { kind: run.kind, status: run.status },
+    run: {
+      kind: run.kind,
+      status: run.status,
+      started_at: (run.startedAt ?? run.createdAt)?.toISOString() ?? null,
+    },
     projectStatus: project.status,
     steps: steps.map((s) => ({
       agent: s.agent,

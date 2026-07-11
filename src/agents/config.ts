@@ -22,12 +22,17 @@ export interface AgentConfig {
 }
 
 function model(name: string, fallback: string): string {
+  // Temporary provider override: one model for every agent (see lib/mesh.ts).
+  // Must support response_format json_schema on the target endpoint.
+  if (process.env.LLM_BASE_URL?.trim()) {
+    return process.env.LLM_MODEL?.trim() || "gemini-2.5-flash";
+  }
   return process.env[name]?.trim() || fallback;
 }
 
 const MODEL_RESEARCH = () => model("MODEL_RESEARCH", "anthropic/claude-sonnet-5");
 const MODEL_DRAFTING = () => model("MODEL_DRAFTING", "anthropic/claude-sonnet-5");
-const MODEL_REFINE = () => model("MODEL_REFINE", "anthropic/claude-opus-4-8");
+const MODEL_REFINE = () => model("MODEL_REFINE", "anthropic/claude-opus-4.8");
 const MODEL_ADDONS = () => model("MODEL_ADDONS", "anthropic/claude-sonnet-5");
 
 const webSearchEnabled = () =>

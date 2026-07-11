@@ -2,7 +2,11 @@
 
 import { requireUser } from "@/lib/auth";
 import { getProjectForUser, updateProject } from "@/db/queries/projects";
-import { createPipelineRun, seedPipelineSteps } from "@/db/queries/pipeline";
+import {
+  createPipelineRun,
+  seedPipelineSteps,
+  updateRunStatus,
+} from "@/db/queries/pipeline";
 import { insertReferences } from "@/db/queries/references";
 import { inngest } from "@/inngest/client";
 import { ADDON_DOC_TYPES, type AddonDocType, type ReferenceInput } from "@/types";
@@ -59,15 +63,26 @@ export async function requestAddons(input: {
 
   await updateProject(input.projectId, user.id, { status: "addons_pending" });
 
-  await inngest.send({
-    name: "project/addons.requested",
-    data: {
-      projectId: input.projectId,
-      userId: user.id,
-      requestedDocs: input.docs,
-      references: input.references,
-    },
-  });
+  try {
+    await inngest.send({
+      name: "project/addons.requested",
+      data: {
+        projectId: input.projectId,
+        userId: user.id,
+        requestedDocs: input.docs,
+        references: input.references,
+      },
+    });
+  } catch (err) {
+    // Don't leave a zombie run stuck in "queued" forever.
+    await updateRunStatus(run.id, { status: "failed", completedAt: new Date() });
+    // Roll the project back so the PRD screen (not the add-on stepper) renders.
+    await updateProject(input.projectId, user.id, { status: "draft" });
+    console.error("inngest.send failed", err);
+    throw new Error(
+      "Could not start the pipeline (background worker unreachable). Try again.",
+    );
+  }
 
   return { ok: true };
 }

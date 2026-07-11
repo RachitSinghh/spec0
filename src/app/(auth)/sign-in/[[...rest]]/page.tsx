@@ -2,14 +2,17 @@ import { SignIn } from "@clerk/nextjs";
 
 import { rawblockClerkAppearance } from "@/lib/clerk-appearance";
 
+/**
+ * Combined sign-in-or-up flow (Clerk `withSignUp`): one page handles both —
+ * an unknown email flows straight into account creation. /sign-up redirects
+ * here.
+ */
 export default function SignInPage() {
   return (
-    <main className="flex min-h-screen w-full flex-col items-center justify-center gap-sp-5 p-sp-5">
-      <h1 className="text-h3 uppercase">SIGN IN</h1>
-      <SignIn
-        appearance={rawblockClerkAppearance}
-        fallbackRedirectUrl="/dashboard"
-      />
-    </main>
+    <SignIn
+      appearance={rawblockClerkAppearance}
+      fallbackRedirectUrl="/dashboard"
+      withSignUp
+    />
   );
 }

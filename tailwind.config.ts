@@ -95,9 +95,15 @@ const config: Config = {
           "0%": { transform: "translateX(8px)", opacity: "0" },
           "100%": { transform: "translateX(0)", opacity: "1" },
         },
+        // Hard on/off blink — RawBlock motion is steps(), never ease.
+        blink: {
+          "0%, 49%": { opacity: "1" },
+          "50%, 100%": { opacity: "0" },
+        },
       },
       animation: {
         "toast-in": "toast-in 120ms steps(2, end)",
+        blink: "blink 1s steps(1, end) infinite",
       },
     },
   },

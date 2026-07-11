@@ -3,7 +3,13 @@
 import { revalidatePath } from "next/cache";
 
 import { requireUser } from "@/lib/auth";
+import { limits } from "@/lib/env";
 import { getProjectForUser, createProject as createProjectRow } from "@/db/queries/projects";
+import {
+  currentPeriod,
+  incrementMonthlyUsage,
+  decrementMonthlyUsage,
+} from "@/db/queries/usage";
 import { updateDocumentContentForUser } from "@/db/queries/documents";
 import {
   createPipelineRun,
@@ -41,6 +47,8 @@ export type CreateProjectResult =
 export async function createProject(input: {
   ideaText: string;
   ideaMeta?: { problem?: string; audience?: string; scope?: string };
+  /** Optional docs picked at intake → auto-generate right after the PRD. */
+  docs?: AddonDocType[];
 }): Promise<CreateProjectResult> {
   const user = await requireUser();
 
@@ -50,28 +58,41 @@ export async function createProject(input: {
   const quota = await checkQuota(user.id);
   if (!quota.allowed) return { paymentRequired: true };
 
-  // Derive an initial title from the idea (the pipeline may refine it later).
-  const title = ideaText.split("\n")[0].slice(0, 80);
+  try {
+    // Derive an initial title from the idea (the pipeline may refine it later).
+    const title = ideaText.split("\n")[0].slice(0, 80);
 
-  const ideaMeta = cleanMeta(input.ideaMeta);
+    const ideaMeta = cleanMeta(input.ideaMeta);
 
-  const project = await createProjectRow({
-    userId: user.id,
-    ideaText,
-    ideaMeta,
-    title,
-    status: "draft",
-  });
+    const project = await createProjectRow({
+      userId: user.id,
+      ideaText,
+      ideaMeta,
+      title,
+      status: "draft",
+    });
 
-  const run = await createPipelineRun({ projectId: project.id, kind: "prd" });
-  await seedPipelineSteps(run.id, PRD_STEPS);
+    const run = await createPipelineRun({ projectId: project.id, kind: "prd" });
+    await seedPipelineSteps(run.id, PRD_STEPS);
 
-  await inngest.send({
-    name: "project/prd.requested",
-    data: { projectId: project.id, userId: user.id },
-  });
+    // Keep only valid doc types, in the fixed generation order.
+    const autoDocs = ADDON_DOC_TYPES.filter((d) => input.docs?.includes(d));
 
-  return { projectId: project.id };
+    await sendOrFailRun(run.id, {
+      name: "project/prd.requested",
+      data: {
+        projectId: project.id,
+        userId: user.id,
+        autoDocs: autoDocs.length ? autoDocs : undefined,
+      },
+    });
+
+    return { projectId: project.id };
+  } catch (err) {
+    // Creation failed after reserving a quota slot — give it back.
+    await decrementMonthlyUsage(user.id, currentPeriod());
+    throw err;
+  }
 }
 
 /**
@@ -132,7 +153,7 @@ export async function regenerate(input: {
       startedAt: null,
       completedAt: null,
     });
-    await inngest.send({
+    await sendOrFailRun(run.id, {
       name: "project/prd.requested",
       data: { projectId: input.projectId, userId: user.id, notes: input.notes },
     });
@@ -143,7 +164,7 @@ export async function regenerate(input: {
     }
     const run = await getLatestRunForProject(input.projectId, "addons");
     if (run) await resetStepsForRerun(run.id, [docType]);
-    await inngest.send({
+    const event = {
       name: "project/addons.requested",
       data: {
         projectId: input.projectId,
@@ -151,16 +172,47 @@ export async function regenerate(input: {
         requestedDocs: [docType],
         notes: input.notes,
       },
-    });
+    } as const;
+    if (run) await sendOrFailRun(run.id, event);
+    else await inngest.send(event);
   }
 
   revalidatePath(`/projects/${input.projectId}`);
   return { ok: true };
 }
 
-/** TEMP quota stub — always allows. Replaced by lib/quota in T-050. */
+/**
+ * Emit a pipeline event; if the send fails (e.g. Inngest unreachable), mark
+ * the run failed instead of leaving a zombie stuck in "queued" forever.
+ */
+async function sendOrFailRun(
+  runId: string,
+  event: Parameters<typeof inngest.send>[0],
+): Promise<void> {
+  try {
+    await inngest.send(event);
+  } catch (err) {
+    await updateRunStatus(runId, { status: "failed", completedAt: new Date() });
+    console.error("inngest.send failed", err);
+    throw new Error(
+      "Could not start the pipeline (background worker unreachable). Try again.",
+    );
+  }
+}
+
+/**
+ * Monthly quota (T-050, minus Stripe). Atomically reserves a slot via the
+ * monthly_usage upsert — concurrent creates can't both slip under the limit.
+ * Over the limit → release the reservation and report not-allowed (the intake
+ * form shows the paywall state). Regenerates never hit this — only new projects.
+ */
 async function checkQuota(userId: string): Promise<{ allowed: boolean }> {
-  void userId; // T-050: count monthly_usage for this user vs FREE_PROJECTS_PER_MONTH
+  const period = currentPeriod();
+  const newCount = await incrementMonthlyUsage(userId, period);
+  if (newCount > limits.freeProjectsPerMonth) {
+    await decrementMonthlyUsage(userId, period);
+    return { allowed: false };
+  }
   return { allowed: true };
 }
 

@@ -11,7 +11,10 @@ import {
   updateRunStatus,
   updateStepByAgent,
   getStepsForRun,
+  createPipelineRun,
+  seedPipelineSteps,
 } from "@/db/queries/pipeline";
+import { ADDON_DOC_TYPES } from "@/types";
 
 /**
  * runPrdPipeline (T-023, TECHNICAL-ARCHITECTURE §3.2).
@@ -31,7 +34,7 @@ export const runPrdPipeline = inngest.createFunction(
     triggers: [{ event: "project/prd.requested" }],
   },
   async ({ event, step, runId: inngestRunId }) => {
-    const { projectId, userId, notes } = event.data;
+    const { projectId, userId, notes, autoDocs } = event.data;
     const mesh = getMeshDeps();
 
     const project = await step.run("load-project", async () => {
@@ -58,6 +61,7 @@ export const runPrdPipeline = inngest.createFunction(
       await updateStepByAgent(runId, "research", {
         status: "running",
         startedAt: new Date(),
+        error: null, // clear any error from a previous attempt
       });
       try {
         const ctx: AgentContext = { idea: project.ideaText, ideaMeta, priorDocs: [], notes };
@@ -79,7 +83,7 @@ export const runPrdPipeline = inngest.createFunction(
 
     // 2) Draft → prd
     const draft = await step.run("draft", async () => {
-      await updateStepByAgent(runId, "draft", { status: "running", startedAt: new Date() });
+      await updateStepByAgent(runId, "draft", { status: "running", startedAt: new Date(), error: null });
       try {
         const ctx: AgentContext = {
           idea: project.ideaText,
@@ -105,7 +109,7 @@ export const runPrdPipeline = inngest.createFunction(
 
     // 3) Refine → overwrite prd with the final version
     await step.run("refine", async () => {
-      await updateStepByAgent(runId, "refine", { status: "running", startedAt: new Date() });
+      await updateStepByAgent(runId, "refine", { status: "running", startedAt: new Date(), error: null });
       try {
         const ctx: AgentContext = {
           idea: project.ideaText,
@@ -134,6 +138,32 @@ export const runPrdPipeline = inngest.createFunction(
       // PRD-ready projects stay in `draft` (per §5.2); `complete` is reserved
       // for after the add-on package is generated.
     });
+
+    // One-shot flow: docs pre-selected at intake → chain straight into
+    // add-ons (same run+steps shape requestAddons creates).
+    const docs = ADDON_DOC_TYPES.filter((d) => autoDocs?.includes(d));
+    if (docs.length > 0) {
+      await step.run("seed-addons-run", async () => {
+        const addonRun = await createPipelineRun({
+          projectId,
+          kind: "addons",
+          requestedDocs: docs,
+        });
+        await seedPipelineSteps(
+          addonRun.id,
+          ADDON_DOC_TYPES.map((agent, i) => ({
+            agent,
+            orderIndex: i,
+            status: docs.includes(agent) ? ("pending" as const) : ("skipped" as const),
+          })),
+        );
+        await updateProject(projectId, userId, { status: "addons_pending" });
+      });
+      await step.sendEvent("auto-addons", {
+        name: "project/addons.requested",
+        data: { projectId, userId, requestedDocs: docs },
+      });
+    }
 
     return { projectId, status: "complete" };
   },

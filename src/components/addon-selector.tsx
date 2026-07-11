@@ -3,6 +3,7 @@
 import * as React from "react";
 import { useRouter } from "next/navigation";
 
+import { cn } from "@/lib/utils";
 import type { AddonDocType, ReferenceInput } from "@/types";
 import { requestAddons } from "@/actions/addons";
 import { Button } from "@/components/ui/button";
@@ -88,12 +89,34 @@ export function AddonSelector({
       <div className="flex max-w-reading flex-col gap-sp-5">
         <fieldset className="flex flex-col gap-sp-3">
           <legend className="mb-sp-2 font-heading text-h4 uppercase">Documents</legend>
-          {DOCS.map((d) => (
+          <p className="font-mono text-small uppercase tracking-[1px]">
+            {selected.size === 0 ? (
+              <>
+                <span className="animate-blink" aria-hidden="true">
+                  █
+                </span>{" "}
+                Click to select — pick at least one
+              </>
+            ) : (
+              `${selected.size} of ${DOCS.length} selected`
+            )}
+          </p>
+          {DOCS.map((d) => {
+            const isOn = selected.has(d.key);
+            return (
             <div key={d.key} className="flex flex-col gap-sp-3">
-              <label className="flex items-center gap-sp-3">
+              <label
+                className={cn(
+                  "flex cursor-pointer select-none items-center gap-sp-3 border-thick border-black p-sp-3 transition-colors",
+                  isOn
+                    ? "bg-black text-white"
+                    : "bg-white hover:bg-surface-hover-input",
+                )}
+              >
                 <Checkbox
-                  checked={selected.has(d.key)}
+                  checked={isOn}
                   onCheckedChange={() => toggle(d.key)}
+                  className={isOn ? "border-white" : undefined}
                 />
                 <span className="font-mono uppercase">{d.label}</span>
                 {d.tooltip ? (
@@ -102,7 +125,7 @@ export function AddonSelector({
                       <button
                         type="button"
                         aria-label="Why is security generic in v1?"
-                        className="border-2 border-black px-1.5 font-mono text-tiny leading-none"
+                        className="border-2 border-current px-1.5 font-mono text-tiny leading-none"
                       >
                         ?
                       </button>
@@ -110,6 +133,12 @@ export function AddonSelector({
                     <TooltipContent>{d.tooltip}</TooltipContent>
                   </Tooltip>
                 ) : null}
+                <span
+                  className="ml-auto font-mono text-small uppercase tracking-[1px]"
+                  aria-hidden="true"
+                >
+                  {isOn ? "[x] Selected" : "[ ] Select"}
+                </span>
               </label>
               {d.key === "ui_ux" && selected.has("ui_ux") ? (
                 <div className="ml-8 border-l-thick border-black pl-sp-3">
@@ -123,7 +152,8 @@ export function AddonSelector({
                 </div>
               ) : null}
             </div>
-          ))}
+            );
+          })}
         </fieldset>
 
         <fieldset className="flex flex-col gap-sp-2">
@@ -144,10 +174,15 @@ export function AddonSelector({
           </RadioGroup>
         </fieldset>
 
-        <div>
+        <div className="flex items-center gap-sp-3">
           <Button size="large" onClick={onGenerate} disabled={!canSubmit}>
             {busy ? "GENERATING…" : "GENERATE DOCS"}
           </Button>
+          {selected.size === 0 && (
+            <span className="font-mono text-small uppercase text-error">
+              ← Select at least one document
+            </span>
+          )}
         </div>
       </div>
     </TooltipProvider>

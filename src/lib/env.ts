@@ -46,9 +46,9 @@ const serverSchema = z.object({
   MESH_BASE_URL: z.url().default("https://api.meshapi.ai/v1"),
   MODEL_RESEARCH: z.string().default("anthropic/claude-sonnet-5"),
   MODEL_DRAFTING: z.string().default("anthropic/claude-sonnet-5"),
-  MODEL_REFINE: z.string().default("anthropic/claude-opus-4-8"),
+  MODEL_REFINE: z.string().default("anthropic/claude-opus-4.8"),
   MODEL_ADDONS: z.string().default("anthropic/claude-sonnet-5"),
-  MODEL_LIGHT: z.string().default("google/gemini-flash"),
+  MODEL_LIGHT: z.string().default("google/gemini-2.5-flash"),
   MESH_ENABLE_WEB_SEARCH: boolFromString,
 
   // ─── Orchestration (Inngest) — prod-only, optional locally ───
@@ -61,11 +61,11 @@ const serverSchema = z.object({
   S3_BUCKET: optional,
   S3_PUBLIC_BASE_URL: optional,
 
-  // ─── Payments (Stripe) ───
-  STRIPE_SECRET_KEY: optional,
-  STRIPE_WEBHOOK_SECRET: optional,
-  NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: optional,
-  STRIPE_PRICE_PER_PROJECT: optional,
+  // ─── Payments (Razorpay) ───
+  RAZORPAY_KEY_ID: optional,
+  RAZORPAY_KEY_SECRET: optional,
+  RAZORPAY_WEBHOOK_SECRET: optional,
+  PROJECT_PRICE_INR: z.coerce.number().int().positive().default(199),
 
   // ─── Observability ───
   SENTRY_DSN: optional,

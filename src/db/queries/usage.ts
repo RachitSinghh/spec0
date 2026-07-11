@@ -59,3 +59,19 @@ export async function incrementMonthlyUsage(
     .returning({ projectsCreated: monthlyUsage.projectsCreated });
   return rows[0].projectsCreated;
 }
+
+/** Release a reserved slot (over-quota reject or failed create). */
+export async function decrementMonthlyUsage(
+  userId: string,
+  period: string,
+): Promise<void> {
+  await db
+    .update(monthlyUsage)
+    .set({
+      projectsCreated: sql`greatest(${monthlyUsage.projectsCreated} - 1, 0)`,
+      updatedAt: new Date(),
+    })
+    .where(
+      and(eq(monthlyUsage.userId, userId), eq(monthlyUsage.period, period)),
+    );
+}

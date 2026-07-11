@@ -78,6 +78,13 @@ export default async function ProjectPage({
   return (
     <div className="flex flex-col gap-sp-5">
       <h2 className="text-h2 uppercase">{project.title ?? "YOUR PRD"}</h2>
+      {project.status === "payment_pending" && (
+        <p className="border-thick border-warning p-sp-3 font-mono text-small text-warning">
+          AWAITING PAYMENT — generation starts the moment your payment is
+          confirmed. If you closed checkout, go back to New Project and unlock
+          again.
+        </p>
+      )}
       <Card variant="elevated">
         <PipelineStatus projectId={projectId} />
       </Card>

@@ -222,8 +222,8 @@ export const references = pgTable(
 );
 
 // ─── 5.7 payments ─────────────────────────────────────────────────────────
-// One row per one-time Stripe charge. The unique checkout session id dedupes
-// webhook retries.
+// One row per one-time charge (Razorpay: checkoutRef = order id, paymentRef =
+// payment id). The unique checkout ref dedupes webhook retries.
 export const payments = pgTable(
   "payments",
   {
@@ -234,10 +234,12 @@ export const payments = pgTable(
     projectId: uuid("project_id").references(() => projects.id, {
       onDelete: "set null",
     }),
-    stripeCheckoutSessionId: text("stripe_checkout_session_id").notNull(),
-    stripePaymentIntentId: text("stripe_payment_intent_id"),
-    amountCents: integer("amount_cents").notNull(),
-    currency: text("currency").notNull().default("usd"),
+    // NOTE: underlying DB columns keep their original (stripe-era) names to
+    // avoid a rename migration — the table was empty when Razorpay landed.
+    checkoutRef: text("stripe_checkout_session_id").notNull(),
+    paymentRef: text("stripe_payment_intent_id"),
+    amountCents: integer("amount_cents").notNull(), // minor units (paise)
+    currency: text("currency").notNull().default("usd"), // always set explicitly on insert
     status: paymentStatusEnum("status").notNull().default("pending"),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
@@ -245,9 +247,7 @@ export const payments = pgTable(
   },
   (t) => [
     index("payments_user_id_idx").on(t.userId),
-    uniqueIndex("payments_checkout_session_unique").on(
-      t.stripeCheckoutSessionId,
-    ),
+    uniqueIndex("payments_checkout_session_unique").on(t.checkoutRef),
   ],
 );
 
