@@ -55,12 +55,11 @@ const serverSchema = z.object({
   INNGEST_EVENT_KEY: optional,
   INNGEST_SIGNING_KEY: optional,
 
-  // ─── Object storage (Cloudflare R2) ───
-  R2_ACCOUNT_ID: optional,
-  R2_ACCESS_KEY_ID: optional,
-  R2_SECRET_ACCESS_KEY: optional,
-  R2_BUCKET: optional,
-  R2_PUBLIC_BASE_URL: optional,
+  // ─── Object storage (AWS S3) ───
+  // AWS_REGION / AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY are read straight
+  // from process.env by the AWS SDK — they don't need to be listed here.
+  S3_BUCKET: optional,
+  S3_PUBLIC_BASE_URL: optional,
 
   // ─── Payments (Stripe) ───
   STRIPE_SECRET_KEY: optional,

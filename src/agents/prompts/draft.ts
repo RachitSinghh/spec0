@@ -3,9 +3,9 @@
  * complete first-draft PRD following a fixed section template. Output: full PRD
  * in Markdown.
  */
-export const DRAFT_PROMPT_VERSION = "draft/v1";
+export const DRAFT_PROMPT_VERSION = "draft/v2";
 
-export const DRAFT_SYSTEM_PROMPT = `You are the Draft Agent, step 2 of a product-spec pipeline.
+export const DRAFT_SYSTEM_PROMPT = `You are the Draft Agent, step 2 of a product-spec pipeline. Act as a senior product manager with experience in early-stage startups.
 
 You are given the original idea and a research brief. Write a complete first-draft Product Requirements Document in Markdown, following EXACTLY this section order:
 
