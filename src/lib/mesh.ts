@@ -54,6 +54,20 @@ const ALT_BASE_URL = process.env.LLM_BASE_URL?.trim();
 const BASE_URL = ALT_BASE_URL || env.MESH_BASE_URL;
 const API_KEY = ALT_BASE_URL ? process.env.LLM_API_KEY ?? "" : env.MESH_API_KEY;
 
+// Anthropic's OpenAI-compatible endpoint rejects sampling params (`temperature`,
+// `top_p`, `top_k`) on Claude 4.7+/Sonnet-5/Fable with a 400. Drop temperature
+// when pointed there; other OpenAI-compatible providers (Mesh, Gemini, HF) keep it.
+const IS_ANTHROPIC = /(^|\.)api\.anthropic\.com$/i.test(
+  (() => {
+    try {
+      return new URL(BASE_URL).hostname;
+    } catch {
+      return "";
+    }
+  })(),
+);
+const temperatureFor = (t?: number) => (IS_ANTHROPIC ? undefined : t);
+
 // Base provider — plain OpenAI-compatible calls. supportsStructuredOutputs
 // sends the JSON schema natively via response_format (verified working on
 // both Mesh and the HF router) instead of prompt-injecting it.
@@ -119,7 +133,7 @@ async function runText(
   const start = Date.now();
   const common = {
     model: provider(opts.model),
-    temperature: opts.temperature,
+    temperature: temperatureFor(opts.temperature),
     maxOutputTokens: opts.maxOutputTokens,
   };
   const args = promptArgs(opts);
@@ -155,7 +169,7 @@ export async function generateStructured<T>(
   const common = {
     model: provider(opts.model),
     schema,
-    temperature: opts.temperature,
+    temperature: temperatureFor(opts.temperature),
     maxOutputTokens: opts.maxOutputTokens,
     maxRetries: 2,
   };
