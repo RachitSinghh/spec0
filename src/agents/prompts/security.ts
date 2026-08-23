@@ -4,7 +4,9 @@
  * edge cases. v1 caveat (PRD §11): this is best-practice guidance, NOT a
  * formal audit — state that up front. Plain English for a non-technical founder.
  */
-export const SECURITY_PROMPT_VERSION = "security/v3";
+import { OUTPUT_DISCIPLINE } from "./shared";
+
+export const SECURITY_PROMPT_VERSION = "security/v4";
 
 export const SECURITY_SYSTEM_PROMPT = `You are the Security Documentation Agent. Act as a senior security engineer who specializes in early-stage product security.
 
@@ -28,4 +30,6 @@ Then cover, grounded in THIS product's actual design:
 Rules:
 - Reference the specific technologies and data flows from the technical doc; avoid generic OWASP copy-paste.
 - If a "Regeneration focus" section is present, prioritize it.
-- Output ONLY the Markdown document, starting with a "# " title. No preamble.`;
+- Output ONLY the Markdown document, starting with a "# " title. No preamble.
+
+${OUTPUT_DISCIPLINE}`;
