@@ -3,6 +3,7 @@ import Link from "next/link";
 import { requireUser } from "@/lib/auth";
 import { limits } from "@/lib/env";
 import { listProjectsForUser } from "@/db/queries/projects";
+import { getTokenTotalsForUser } from "@/db/queries/pipeline";
 import { getProjectsCreated, currentPeriod } from "@/db/queries/usage";
 import { Button } from "@/components/ui/button";
 import { StatusChip } from "@/components/ui/chip";
@@ -16,9 +17,10 @@ import { projectChip, canDownload } from "@/lib/project-status";
  */
 export default async function DashboardPage() {
   const user = await requireUser();
-  const [projects, used] = await Promise.all([
+  const [projects, used, tokenTotals] = await Promise.all([
     listProjectsForUser(user.id),
     getProjectsCreated(user.id, currentPeriod()),
+    getTokenTotalsForUser(user.id),
   ]);
 
   return (
@@ -52,6 +54,11 @@ export default async function DashboardPage() {
                   {p.title ?? "Untitled project"}
                 </Link>
                 <div className="flex items-center gap-sp-3">
+                  {tokenTotals[p.id] ? (
+                    <span className="font-mono text-mono text-content-primary opacity-60">
+                      {tokenTotals[p.id].toLocaleString()} tok
+                    </span>
+                  ) : null}
                   <StatusChip status={chip.status}>{chip.label}</StatusChip>
                   {canDownload(p.status) ? (
                     <a
