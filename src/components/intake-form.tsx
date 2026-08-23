@@ -4,7 +4,7 @@ import * as React from "react";
 import { useRouter } from "next/navigation";
 
 import { createProject } from "@/actions/projects";
-import { beginPaidCheckout, confirmPayment } from "@/actions/billing";
+import { beginPaidCheckout } from "@/actions/billing";
 import type { AddonDocType } from "@/types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -19,24 +19,6 @@ const DOC_OPTIONS: { key: AddonDocType; label: string }[] = [
   { key: "ui_ux", label: "UI-UX" },
   { key: "tickets", label: "TICKETS" },
 ];
-
-declare global {
-  interface Window {
-    Razorpay?: new (options: Record<string, unknown>) => { open: () => void };
-  }
-}
-
-/** Load Razorpay Checkout once (script tag, resolves when window.Razorpay exists). */
-function loadRazorpay(): Promise<void> {
-  return new Promise((resolve, reject) => {
-    if (window.Razorpay) return resolve();
-    const s = document.createElement("script");
-    s.src = "https://checkout.razorpay.com/v1/checkout.js";
-    s.onload = () => resolve();
-    s.onerror = () => reject(new Error("Could not load Razorpay checkout."));
-    document.body.appendChild(s);
-  });
-}
 
 /**
  * Idea intake form (T-031, FRONTEND-SPEC A6.4). Mono textarea + three optional
@@ -69,43 +51,18 @@ export function IntakeForm({
       return next;
     });
 
-  // Over-quota purchase: order → Razorpay modal → verify → project page.
+  // Over-quota purchase: create a Dodo checkout session and redirect to it.
   async function onUnlock() {
     setPending(true);
     setError(null);
     try {
       const selectedDocs = DOC_OPTIONS.filter((d) => docs.has(d.key)).map((d) => d.key);
-      const [checkout] = await Promise.all([
-        beginPaidCheckout({
-          ideaText: idea,
-          ideaMeta: { problem, audience, scope },
-          docs: selectedDocs,
-        }),
-        loadRazorpay(),
-      ]);
-      const rzp = new window.Razorpay!({
-        key: checkout.keyId,
-        order_id: checkout.orderId,
-        amount: checkout.amount,
-        currency: checkout.currency,
-        name: "spec0",
-        description: "One full spec package",
-        handler: async (resp: {
-          razorpay_order_id: string;
-          razorpay_payment_id: string;
-          razorpay_signature: string;
-        }) => {
-          await confirmPayment({
-            projectId: checkout.projectId,
-            orderId: resp.razorpay_order_id,
-            paymentId: resp.razorpay_payment_id,
-            signature: resp.razorpay_signature,
-          });
-          router.push(`/projects/${checkout.projectId}`);
-        },
-        modal: { ondismiss: () => setPending(false) },
+      const { checkoutUrl } = await beginPaidCheckout({
+        ideaText: idea,
+        ideaMeta: { problem, audience, scope },
+        docs: selectedDocs,
       });
-      rzp.open();
+      window.location.href = checkoutUrl;
     } catch (err) {
       setError(err instanceof Error ? err.message : "Checkout failed.");
       setPending(false);
