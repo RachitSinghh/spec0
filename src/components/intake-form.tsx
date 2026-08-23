@@ -4,11 +4,11 @@ import * as React from "react";
 import { useRouter } from "next/navigation";
 
 import { createProject } from "@/actions/projects";
-import { beginPaidCheckout, confirmPayment } from "@/actions/billing";
+import { beginPaidCheckout } from "@/actions/billing";
 import type { AddonDocType } from "@/types";
+import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
+import { Textarea, type TextareaProps } from "@/components/ui/textarea";
 import { Field } from "@/components/ui/field";
 import { FilterChip } from "@/components/ui/chip";
 
@@ -20,22 +20,32 @@ const DOC_OPTIONS: { key: AddonDocType; label: string }[] = [
   { key: "tickets", label: "TICKETS" },
 ];
 
-declare global {
-  interface Window {
-    Razorpay?: new (options: Record<string, unknown>) => { open: () => void };
-  }
-}
+/** Draft persistence key: survive a refresh without losing what was typed. */
+const STORAGE_KEY = "spec0:intake-draft";
 
-/** Load Razorpay Checkout once (script tag, resolves when window.Razorpay exists). */
-function loadRazorpay(): Promise<void> {
-  return new Promise((resolve, reject) => {
-    if (window.Razorpay) return resolve();
-    const s = document.createElement("script");
-    s.src = "https://checkout.razorpay.com/v1/checkout.js";
-    s.onload = () => resolve();
-    s.onerror = () => reject(new Error("Could not load Razorpay checkout."));
-    document.body.appendChild(s);
-  });
+/**
+ * Textarea that grows to fit typed or pasted content and shrinks back. Base
+ * height stays at the rows-defined size (one line for the detail fields), so a
+ * single line reads centered; it only grows once content overflows.
+ */
+function AutoTextarea({ value, className, ...props }: TextareaProps) {
+  const ref = React.useRef<HTMLTextAreaElement>(null);
+  React.useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    el.style.height = ""; // fall back to the rows/min-height base
+    if (el.scrollHeight > el.clientHeight) {
+      el.style.height = `${el.scrollHeight}px`; // grow past the base only when needed
+    }
+  }, [value]);
+  return (
+    <Textarea
+      ref={ref}
+      value={value}
+      className={cn("resize-none overflow-hidden", className)}
+      {...props}
+    />
+  );
 }
 
 /**
@@ -60,6 +70,52 @@ export function IntakeForm({
   const [pending, setPending] = React.useState(false);
   const [paywall, setPaywall] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
+  const loaded = React.useRef(false);
+
+  // Restore a saved draft once, then persist every change so a refresh (or a
+  // bounce back from checkout) keeps the form filled.
+  React.useEffect(() => {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (raw) {
+        const s = JSON.parse(raw) as Partial<{
+          idea: string;
+          problem: string;
+          audience: string;
+          scope: string;
+          docs: AddonDocType[];
+        }>;
+        if (typeof s.idea === "string") setIdea(s.idea);
+        if (typeof s.problem === "string") setProblem(s.problem);
+        if (typeof s.audience === "string") setAudience(s.audience);
+        if (typeof s.scope === "string") setScope(s.scope);
+        if (Array.isArray(s.docs)) setDocs(new Set(s.docs));
+      }
+    } catch {
+      // ignore corrupt or blocked storage
+    }
+    loaded.current = true;
+  }, []);
+
+  React.useEffect(() => {
+    if (!loaded.current) return;
+    try {
+      localStorage.setItem(
+        STORAGE_KEY,
+        JSON.stringify({ idea, problem, audience, scope, docs: [...docs] }),
+      );
+    } catch {
+      // ignore quota or blocked storage
+    }
+  }, [idea, problem, audience, scope, docs]);
+
+  const clearDraft = () => {
+    try {
+      localStorage.removeItem(STORAGE_KEY);
+    } catch {
+      // ignore
+    }
+  };
 
   const toggleDoc = (key: AddonDocType) =>
     setDocs((prev) => {
@@ -69,43 +125,19 @@ export function IntakeForm({
       return next;
     });
 
-  // Over-quota purchase: order → Razorpay modal → verify → project page.
+  // Over-quota purchase: create a Dodo checkout session and redirect to it.
   async function onUnlock() {
     setPending(true);
     setError(null);
     try {
       const selectedDocs = DOC_OPTIONS.filter((d) => docs.has(d.key)).map((d) => d.key);
-      const [checkout] = await Promise.all([
-        beginPaidCheckout({
-          ideaText: idea,
-          ideaMeta: { problem, audience, scope },
-          docs: selectedDocs,
-        }),
-        loadRazorpay(),
-      ]);
-      const rzp = new window.Razorpay!({
-        key: checkout.keyId,
-        order_id: checkout.orderId,
-        amount: checkout.amount,
-        currency: checkout.currency,
-        name: "spec0",
-        description: "One full spec package",
-        handler: async (resp: {
-          razorpay_order_id: string;
-          razorpay_payment_id: string;
-          razorpay_signature: string;
-        }) => {
-          await confirmPayment({
-            projectId: checkout.projectId,
-            orderId: resp.razorpay_order_id,
-            paymentId: resp.razorpay_payment_id,
-            signature: resp.razorpay_signature,
-          });
-          router.push(`/projects/${checkout.projectId}`);
-        },
-        modal: { ondismiss: () => setPending(false) },
+      const { checkoutUrl } = await beginPaidCheckout({
+        ideaText: idea,
+        ideaMeta: { problem, audience, scope },
+        docs: selectedDocs,
       });
-      rzp.open();
+      clearDraft();
+      window.location.href = checkoutUrl;
     } catch (err) {
       setError(err instanceof Error ? err.message : "Checkout failed.");
       setPending(false);
@@ -131,6 +163,7 @@ export function IntakeForm({
         setPending(false);
         return;
       }
+      clearDraft();
       router.push(`/projects/${res.projectId}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong.");
@@ -141,21 +174,23 @@ export function IntakeForm({
   return (
     <form onSubmit={onSubmit} className="flex max-w-reading flex-col gap-sp-4">
       <Field label="Your idea" htmlFor="idea">
-        <Textarea
+        <AutoTextarea
           id="idea"
-          rows={8}
+          rows={1}
           required
           value={idea}
           onChange={(e) => setIdea(e.target.value)}
           placeholder="Describe the product idea you want a spec for…"
           disabled={pending}
+          className="min-h-40"
         />
       </Field>
 
-      <div className="grid gap-sp-4 md:grid-cols-3">
+      <div className="grid items-start gap-sp-4 md:grid-cols-3">
         <Field label="Problem" htmlFor="problem">
-          <Input
+          <AutoTextarea
             id="problem"
+            rows={1}
             value={problem}
             onChange={(e) => setProblem(e.target.value)}
             placeholder="optional"
@@ -163,8 +198,9 @@ export function IntakeForm({
           />
         </Field>
         <Field label="Audience" htmlFor="audience">
-          <Input
+          <AutoTextarea
             id="audience"
+            rows={1}
             value={audience}
             onChange={(e) => setAudience(e.target.value)}
             placeholder="optional"
@@ -172,8 +208,9 @@ export function IntakeForm({
           />
         </Field>
         <Field label="Rough scope" htmlFor="scope">
-          <Input
+          <AutoTextarea
             id="scope"
+            rows={1}
             value={scope}
             onChange={(e) => setScope(e.target.value)}
             placeholder="optional"

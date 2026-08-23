@@ -192,6 +192,11 @@ export async function retryRun(input: { projectId: string }): Promise<{ ok: bool
   const user = await requireUser();
   const project = await getProjectForUser(input.projectId, user.id);
   if (!project) throw new Error("Project not found.");
+  // Paywall guard: a payment_pending project has a seeded run; retrying it must
+  // not generate for free. Unlock only happens when payment succeeds.
+  if (project.status === "payment_pending") {
+    throw new Error("Payment required before this project can generate.");
+  }
 
   const run = await getLatestRunForProject(input.projectId);
   if (!run) throw new Error("Nothing to retry.");

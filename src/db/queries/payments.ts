@@ -37,3 +37,16 @@ export async function markPaymentSucceeded(
     .returning({ id: payments.id });
   return rows.length > 0;
 }
+
+/**
+ * Flip a still-pending payment to failed (failed/cancelled webhook). Never
+ * touches a succeeded/refunded row, so a late failure after success is a no-op.
+ */
+export async function markPaymentFailed(checkoutRef: string): Promise<boolean> {
+  const rows = await db
+    .update(payments)
+    .set({ status: "failed" })
+    .where(and(eq(payments.checkoutRef, checkoutRef), eq(payments.status, "pending")))
+    .returning({ id: payments.id });
+  return rows.length > 0;
+}

@@ -222,8 +222,8 @@ export const references = pgTable(
 );
 
 // ─── 5.7 payments ─────────────────────────────────────────────────────────
-// One row per one-time charge (Razorpay: checkoutRef = order id, paymentRef =
-// payment id). The unique checkout ref dedupes webhook retries.
+// One row per one-time charge. Dodo: checkoutRef = projectId, paymentRef =
+// Dodo payment id. The unique checkout ref dedupes webhook retries.
 export const payments = pgTable(
   "payments",
   {
@@ -235,7 +235,7 @@ export const payments = pgTable(
       onDelete: "set null",
     }),
     // NOTE: underlying DB columns keep their original (stripe-era) names to
-    // avoid a rename migration — the table was empty when Razorpay landed.
+    // avoid a rename migration; kept across the Razorpay and Dodo gateways.
     checkoutRef: text("stripe_checkout_session_id").notNull(),
     paymentRef: text("stripe_payment_intent_id"),
     amountCents: integer("amount_cents").notNull(), // minor units (paise)
