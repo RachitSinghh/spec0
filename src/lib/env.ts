@@ -61,11 +61,20 @@ const serverSchema = z.object({
   S3_BUCKET: optional,
   S3_PUBLIC_BASE_URL: optional,
 
-  // ─── Payments (Razorpay) ───
+  // ─── Payments (Razorpay) — being replaced by Dodo, removed once migrated ───
   RAZORPAY_KEY_ID: optional,
   RAZORPAY_KEY_SECRET: optional,
   RAZORPAY_WEBHOOK_SECRET: optional,
   PROJECT_PRICE_INR: z.coerce.number().int().positive().default(199),
+
+  // ─── Payments (Dodo Payments) ───
+  // Prices live in the Dodo product (dashboard), not here.
+  DODO_PAYMENTS_API_KEY: optional, // Dashboard → Developer → API Keys
+  DODO_PAYMENTS_WEBHOOK_KEY: optional, // Dashboard → Developer → Webhooks (signing secret)
+  DODO_PAYMENTS_ENVIRONMENT: z
+    .enum(["test_mode", "live_mode"])
+    .default("test_mode"),
+  DODO_PROJECT_PRODUCT_ID: optional, // one-time "project unlock" product
 
   // ─── Observability ───
   SENTRY_DSN: optional,
