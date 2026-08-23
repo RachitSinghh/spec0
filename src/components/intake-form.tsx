@@ -20,6 +20,9 @@ const DOC_OPTIONS: { key: AddonDocType; label: string }[] = [
   { key: "tickets", label: "TICKETS" },
 ];
 
+/** Draft persistence key: survive a refresh without losing what was typed. */
+const STORAGE_KEY = "spec0:intake-draft";
+
 /**
  * Textarea that grows to fit typed or pasted content and shrinks back. Base
  * height stays at the rows-defined size (one line for the detail fields), so a
@@ -67,6 +70,52 @@ export function IntakeForm({
   const [pending, setPending] = React.useState(false);
   const [paywall, setPaywall] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
+  const loaded = React.useRef(false);
+
+  // Restore a saved draft once, then persist every change so a refresh (or a
+  // bounce back from checkout) keeps the form filled.
+  React.useEffect(() => {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (raw) {
+        const s = JSON.parse(raw) as Partial<{
+          idea: string;
+          problem: string;
+          audience: string;
+          scope: string;
+          docs: AddonDocType[];
+        }>;
+        if (typeof s.idea === "string") setIdea(s.idea);
+        if (typeof s.problem === "string") setProblem(s.problem);
+        if (typeof s.audience === "string") setAudience(s.audience);
+        if (typeof s.scope === "string") setScope(s.scope);
+        if (Array.isArray(s.docs)) setDocs(new Set(s.docs));
+      }
+    } catch {
+      // ignore corrupt or blocked storage
+    }
+    loaded.current = true;
+  }, []);
+
+  React.useEffect(() => {
+    if (!loaded.current) return;
+    try {
+      localStorage.setItem(
+        STORAGE_KEY,
+        JSON.stringify({ idea, problem, audience, scope, docs: [...docs] }),
+      );
+    } catch {
+      // ignore quota or blocked storage
+    }
+  }, [idea, problem, audience, scope, docs]);
+
+  const clearDraft = () => {
+    try {
+      localStorage.removeItem(STORAGE_KEY);
+    } catch {
+      // ignore
+    }
+  };
 
   const toggleDoc = (key: AddonDocType) =>
     setDocs((prev) => {
@@ -87,6 +136,7 @@ export function IntakeForm({
         ideaMeta: { problem, audience, scope },
         docs: selectedDocs,
       });
+      clearDraft();
       window.location.href = checkoutUrl;
     } catch (err) {
       setError(err instanceof Error ? err.message : "Checkout failed.");
@@ -113,6 +163,7 @@ export function IntakeForm({
         setPending(false);
         return;
       }
+      clearDraft();
       router.push(`/projects/${res.projectId}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong.");
