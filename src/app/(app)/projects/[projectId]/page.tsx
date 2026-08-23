@@ -4,12 +4,21 @@ import { requireUser } from "@/lib/auth";
 import type { DocType } from "@/types";
 import { getProjectForUser } from "@/db/queries/projects";
 import { getDocument, listUserFacingDocuments } from "@/db/queries/documents";
-import { getLatestRunForProject } from "@/db/queries/pipeline";
+import { getLatestRunForProject, getTokenTotalsForUser } from "@/db/queries/pipeline";
+import { DOC_META } from "@/lib/markdown";
 import { Card } from "@/components/ui/card";
 import { StatusChip } from "@/components/ui/chip";
 import { PipelineStatus } from "@/components/pipeline-status";
 import { DocPanel } from "@/components/doc-panel";
-import { PackageComplete } from "@/components/package-complete";
+import { PackageComplete, type PackageFile } from "@/components/package-complete";
+
+/** Pipeline/build order — the manifest is numbered by this sequence. */
+const DOC_ORDER: DocType[] = ["prd", "technical", "security", "ui_ux", "tickets"];
+
+function wordCount(content: string): number {
+  const t = content.trim();
+  return t ? t.split(/\s+/).length : 0;
+}
 
 /**
  * Pipeline Status + PRD Viewer (T-033) with add-on + package states (T-045).
@@ -31,11 +40,26 @@ export default async function ProjectPage({
 
   // Full package done → package screen.
   if (project.status === "complete") {
-    const docs = await listUserFacingDocuments(projectId);
+    const [docs, tokenTotals] = await Promise.all([
+      listUserFacingDocuments(projectId),
+      getTokenTotalsForUser(user.id),
+    ]);
+    const files: PackageFile[] = docs
+      .map((d) => ({ d, type: d.type as DocType, meta: DOC_META[d.type as DocType] }))
+      .filter((f) => f.meta?.filename)
+      .map((f) => ({
+        type: f.type,
+        title: f.meta.title,
+        filename: f.meta.filename as string,
+        words: wordCount(f.d.content),
+        edited: f.d.lastEditedByUser,
+      }))
+      .sort((a, b) => DOC_ORDER.indexOf(a.type) - DOC_ORDER.indexOf(b.type));
     return (
       <PackageComplete
         projectId={projectId}
-        docTypes={docs.map((d) => d.type as DocType)}
+        files={files}
+        totalTokens={tokenTotals[projectId] ?? 0}
       />
     );
   }
