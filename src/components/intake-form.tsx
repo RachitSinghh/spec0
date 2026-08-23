@@ -20,14 +20,20 @@ const DOC_OPTIONS: { key: AddonDocType; label: string }[] = [
   { key: "tickets", label: "TICKETS" },
 ];
 
-/** Textarea that grows to fit typed or pasted content and shrinks back. */
+/**
+ * Textarea that grows to fit typed or pasted content and shrinks back. Base
+ * height stays at the rows-defined size (one line for the detail fields), so a
+ * single line reads centered; it only grows once content overflows.
+ */
 function AutoTextarea({ value, className, ...props }: TextareaProps) {
   const ref = React.useRef<HTMLTextAreaElement>(null);
   React.useEffect(() => {
     const el = ref.current;
     if (!el) return;
-    el.style.height = "auto";
-    el.style.height = `${el.scrollHeight}px`;
+    el.style.height = ""; // fall back to the rows/min-height base
+    if (el.scrollHeight > el.clientHeight) {
+      el.style.height = `${el.scrollHeight}px`; // grow past the base only when needed
+    }
   }, [value]);
   return (
     <Textarea
@@ -129,7 +135,7 @@ export function IntakeForm({
         />
       </Field>
 
-      <div className="grid gap-sp-4 md:grid-cols-3">
+      <div className="grid items-start gap-sp-4 md:grid-cols-3">
         <Field label="Problem" htmlFor="problem">
           <AutoTextarea
             id="problem"
