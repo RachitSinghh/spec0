@@ -339,6 +339,9 @@ export function PipelineStatus({
   // (e.g. emitted before the app was synced with Inngest).
   const stale =
     runLive &&
+    // A payment_pending project is awaiting payment, not a lost event — never
+    // offer "restart", the retry would just fail the paywall guard.
+    data?.projectStatus !== "payment_pending" &&
     steps.length > 0 &&
     steps.every((s) => s.status === "pending" || s.status === "skipped") &&
     elapsed != null &&
