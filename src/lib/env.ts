@@ -61,10 +61,7 @@ const serverSchema = z.object({
   S3_BUCKET: optional,
   S3_PUBLIC_BASE_URL: optional,
 
-  // ─── Payments (Razorpay) — being replaced by Dodo, removed once migrated ───
-  RAZORPAY_KEY_ID: optional,
-  RAZORPAY_KEY_SECRET: optional,
-  RAZORPAY_WEBHOOK_SECRET: optional,
+  // ─── Pricing (display/record only; real charge is the Dodo product price) ───
   PROJECT_PRICE_INR: z.coerce.number().int().positive().default(199),
 
   // ─── Payments (Dodo Payments) ───

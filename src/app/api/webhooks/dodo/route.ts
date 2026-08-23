@@ -1,3 +1,4 @@
+import { NextRequest, NextResponse } from "next/server";
 import { Webhooks } from "@dodopayments/nextjs";
 
 import { env } from "@/lib/env";
@@ -13,23 +14,35 @@ import { unlockPaidProject } from "@/lib/dodo";
  * subscribe to payment.succeeded, put the signing secret in
  * DODO_PAYMENTS_WEBHOOK_KEY.
  */
-export const POST = Webhooks({
-  webhookKey: env.DODO_PAYMENTS_WEBHOOK_KEY ?? "",
-  onPaymentSucceeded: async (payload) => {
-    const data = (payload as { data?: unknown }).data as {
-      payment_id?: string;
-      metadata?: Record<string, string>;
-    };
-    const projectId = data?.metadata?.projectId;
-    const userId = data?.metadata?.userId;
-    const paymentId = data?.payment_id;
-    if (!projectId || !userId || !paymentId) return; // not ours / incomplete
 
-    await unlockPaidProject({
-      projectId,
-      userId,
-      checkoutRef: projectId,
-      paymentRef: paymentId,
-    });
-  },
-});
+// Built only when the signing secret is present — the adaptor throws on an
+// empty key, and payments ship dark until the key is configured.
+const handler = env.DODO_PAYMENTS_WEBHOOK_KEY
+  ? Webhooks({
+      webhookKey: env.DODO_PAYMENTS_WEBHOOK_KEY,
+      onPaymentSucceeded: async (payload) => {
+        const data = (payload as { data?: unknown }).data as {
+          payment_id?: string;
+          metadata?: Record<string, string>;
+        };
+        const projectId = data?.metadata?.projectId;
+        const userId = data?.metadata?.userId;
+        const paymentId = data?.payment_id;
+        if (!projectId || !userId || !paymentId) return; // not ours / incomplete
+
+        await unlockPaidProject({
+          projectId,
+          userId,
+          checkoutRef: projectId,
+          paymentRef: paymentId,
+        });
+      },
+    })
+  : null;
+
+export async function POST(req: NextRequest): Promise<Response> {
+  if (!handler) {
+    return NextResponse.json({ error: "webhook not configured" }, { status: 503 });
+  }
+  return handler(req);
+}
