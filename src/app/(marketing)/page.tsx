@@ -27,6 +27,37 @@ const DOCS = [
   { name: "ONE ZIP", desc: "The whole package as Markdown files — drop it straight into your repo." },
 ];
 
+const FAQ = [
+  {
+    q: "Is spec0 free?",
+    a: "Your first project each month is free, with the full pipeline and every doc. After that you pay once per project. No subscription.",
+  },
+  {
+    q: "Why pay per project, not monthly?",
+    a: "You write a spec when an idea shows up, not every day. A monthly plan would charge you for months you never use it. Paying per project means you only pay when you actually generate one.",
+  },
+  {
+    q: "What does the payment cover?",
+    a: "Every spec runs seven AI agents across research, drafting, refinement and documentation on frontier models. That compute has a real cost. The one time fee covers it plus a small margin, so quality never gets cut to save tokens.",
+  },
+  {
+    q: "How much does a project cost?",
+    a: "A small one time fee, shown clearly before you pay. The exact amount, including tax, appears on the checkout page.",
+  },
+  {
+    q: "Is there a subscription or a saved card?",
+    a: "No. There is no subscription and no card kept on file. You pay per project through Dodo Payments, our merchant of record, and that is it.",
+  },
+  {
+    q: "What happens right after I pay?",
+    a: "Generation starts immediately. You watch the agents work live, then review, edit or regenerate any doc, and download the whole package as one zip.",
+  },
+  {
+    q: "Can I use my own AI key?",
+    a: "Bring your own key is on the roadmap. Plug in your own model key and generate as much as you want on your own compute. It is not live yet.",
+  },
+];
+
 export default function MarketingHome() {
   return (
     <div className="min-h-screen bg-white">
@@ -186,6 +217,54 @@ export default function MarketingHome() {
               </div>
             ))}
           </div>
+        </section>
+
+        {/* ─── FAQ ─── */}
+        <section
+          id="faq"
+          className="flex flex-col gap-sp-4 border-t-thick border-black py-sp-6"
+        >
+          <h2 className="font-heading text-h3 uppercase md:text-h2">
+            Pricing questions
+          </h2>
+          <div className="flex flex-col [&>*+*]:mt-[-3px]">
+            {FAQ.map((f) => (
+              <details key={f.q} className="group border-thick border-black">
+                <summary className="flex cursor-pointer list-none items-center justify-between gap-sp-3 p-sp-4 font-heading text-h4 uppercase [&::-webkit-details-marker]:hidden">
+                  <span>{f.q}</span>
+                  <span
+                    aria-hidden="true"
+                    className="font-mono text-h4 leading-none group-open:hidden"
+                  >
+                    +
+                  </span>
+                  <span
+                    aria-hidden="true"
+                    className="hidden font-mono text-h4 leading-none group-open:inline"
+                  >
+                    −
+                  </span>
+                </summary>
+                <p className="border-t-thick border-black p-sp-4 text-body">
+                  {f.a}
+                </p>
+              </details>
+            ))}
+          </div>
+          <script
+            type="application/ld+json"
+            dangerouslySetInnerHTML={{
+              __html: JSON.stringify({
+                "@context": "https://schema.org",
+                "@type": "FAQPage",
+                mainEntity: FAQ.map((f) => ({
+                  "@type": "Question",
+                  name: f.q,
+                  acceptedAnswer: { "@type": "Answer", text: f.a },
+                })),
+              }),
+            }}
+          />
         </section>
 
         {/* ─── Final CTA ─── */}
