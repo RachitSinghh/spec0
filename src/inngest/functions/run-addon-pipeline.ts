@@ -40,6 +40,11 @@ export const runAddonPipeline = inngest.createFunction(
     const project = await step.run("load-project", async () => {
       const p = await getProjectForUser(projectId, userId);
       if (!p) throw new NonRetriableError(`project ${projectId} not found`);
+      // Paywall guard: never generate for an unpaid project, whatever fired
+      // this event (retry, lost event, direct injection).
+      if (p.status === "payment_pending") {
+        throw new NonRetriableError(`project ${projectId} awaiting payment`);
+      }
       return p;
     });
 
