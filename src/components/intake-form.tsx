@@ -6,9 +6,9 @@ import { useRouter } from "next/navigation";
 import { createProject } from "@/actions/projects";
 import { beginPaidCheckout } from "@/actions/billing";
 import type { AddonDocType } from "@/types";
+import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
+import { Textarea, type TextareaProps } from "@/components/ui/textarea";
 import { Field } from "@/components/ui/field";
 import { FilterChip } from "@/components/ui/chip";
 
@@ -19,6 +19,25 @@ const DOC_OPTIONS: { key: AddonDocType; label: string }[] = [
   { key: "ui_ux", label: "UI-UX" },
   { key: "tickets", label: "TICKETS" },
 ];
+
+/** Textarea that grows to fit typed or pasted content and shrinks back. */
+function AutoTextarea({ value, className, ...props }: TextareaProps) {
+  const ref = React.useRef<HTMLTextAreaElement>(null);
+  React.useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = `${el.scrollHeight}px`;
+  }, [value]);
+  return (
+    <Textarea
+      ref={ref}
+      value={value}
+      className={cn("resize-none overflow-hidden", className)}
+      {...props}
+    />
+  );
+}
 
 /**
  * Idea intake form (T-031, FRONTEND-SPEC A6.4). Mono textarea + three optional
@@ -98,21 +117,23 @@ export function IntakeForm({
   return (
     <form onSubmit={onSubmit} className="flex max-w-reading flex-col gap-sp-4">
       <Field label="Your idea" htmlFor="idea">
-        <Textarea
+        <AutoTextarea
           id="idea"
-          rows={8}
+          rows={1}
           required
           value={idea}
           onChange={(e) => setIdea(e.target.value)}
           placeholder="Describe the product idea you want a spec for…"
           disabled={pending}
+          className="min-h-40"
         />
       </Field>
 
       <div className="grid gap-sp-4 md:grid-cols-3">
         <Field label="Problem" htmlFor="problem">
-          <Input
+          <AutoTextarea
             id="problem"
+            rows={1}
             value={problem}
             onChange={(e) => setProblem(e.target.value)}
             placeholder="optional"
@@ -120,8 +141,9 @@ export function IntakeForm({
           />
         </Field>
         <Field label="Audience" htmlFor="audience">
-          <Input
+          <AutoTextarea
             id="audience"
+            rows={1}
             value={audience}
             onChange={(e) => setAudience(e.target.value)}
             placeholder="optional"
@@ -129,8 +151,9 @@ export function IntakeForm({
           />
         </Field>
         <Field label="Rough scope" htmlFor="scope">
-          <Input
+          <AutoTextarea
             id="scope"
+            rows={1}
             value={scope}
             onChange={(e) => setScope(e.target.value)}
             placeholder="optional"
