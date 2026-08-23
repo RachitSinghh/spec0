@@ -5,6 +5,7 @@ import { requireUser } from "@/lib/auth";
 import { limits } from "@/lib/env";
 import { getProjectsCreated, currentPeriod } from "@/db/queries/usage";
 import { QuotaChip } from "@/components/quota-chip";
+import { LogoMark } from "@/components/logo";
 
 /**
  * Authenticated app shell (T-013, FRONTEND-SPEC A4/A6.3).
@@ -28,9 +29,12 @@ export default async function AppLayout({
         <nav className="mx-auto flex w-full max-w-app flex-col items-start justify-between gap-sp-3 px-sp-4 py-sp-3 md:flex-row md:items-center">
           <Link
             href="/dashboard"
-            className="font-heading text-2xl uppercase tracking-tight text-black no-underline"
+            className="flex items-center gap-sp-3 text-black no-underline"
           >
-            SPEC0
+            <LogoMark className="h-7 w-7" />
+            <span className="font-heading text-2xl uppercase tracking-tight">
+              SPEC0
+            </span>
           </Link>
           <div className="flex items-center gap-sp-4">
             <QuotaChip used={used} limit={limits.freeProjectsPerMonth} />

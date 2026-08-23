@@ -41,6 +41,14 @@
     -webkit-tap-highlight-color: transparent;
   }
 
+  /* Smooth anchor scrolling (e.g. #how nav), disabled when the user asks to
+   * reduce motion. */
+  @media (prefers-reduced-motion: no-preference) {
+    html {
+      scroll-behavior: smooth;
+    }
+  }
+
   body {
     @apply bg-surface-base font-sans text-body text-content-primary;
   }

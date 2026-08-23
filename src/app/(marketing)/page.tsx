@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
+import { LogoMark } from "@/components/logo";
 
 /**
  * Marketing landing page. Static, zero client JS — the "running" pipeline
@@ -32,8 +33,11 @@ export default function MarketingHome() {
       {/* ─── Nav ─── */}
       <header className="border-b-thick border-black">
         <nav className="mx-auto flex w-full max-w-app items-center justify-between px-sp-4 py-sp-3">
-          <span className="font-heading text-2xl uppercase tracking-tight">
-            SPEC0
+          <span className="flex items-center gap-sp-3">
+            <LogoMark className="h-7 w-7" />
+            <span className="font-heading text-2xl uppercase tracking-tight">
+              SPEC0
+            </span>
           </span>
           <div className="flex items-center gap-sp-3">
             <a

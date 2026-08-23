@@ -56,7 +56,7 @@ export function PackageComplete({
 
       {/* Build manifest — numbered by pipeline order (that order is real: each */}
       {/* stage builds on the ones before it, ending in the ticket backlog). */}
-      <ul className="max-w-reading divide-y-[3px] divide-black border-y-[3px] border-black">
+      <ul className="divide-y-[3px] divide-black border-y-[3px] border-black">
         {files.map((f, i) => (
           <li key={f.type} className="flex items-start gap-sp-4 py-sp-3">
             <span className="w-8 shrink-0 pt-0.5 font-mono text-mono text-content-primary opacity-40">
