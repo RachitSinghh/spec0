@@ -39,14 +39,56 @@ export async function markPaymentSucceeded(
 }
 
 /**
- * Flip a still-pending payment to failed (failed/cancelled webhook). Never
- * touches a succeeded/refunded row, so a late failure after success is a no-op.
+ * Flip a still-pending payment to a terminal non-success state (failed or
+ * cancelled webhook). Never touches a succeeded/refunded row, so a late event
+ * after success is a no-op.
  */
-export async function markPaymentFailed(checkoutRef: string): Promise<boolean> {
+async function markPaymentTerminal(
+  checkoutRef: string,
+  status: "failed" | "cancelled",
+): Promise<boolean> {
   const rows = await db
     .update(payments)
-    .set({ status: "failed" })
+    .set({ status })
     .where(and(eq(payments.checkoutRef, checkoutRef), eq(payments.status, "pending")))
     .returning({ id: payments.id });
   return rows.length > 0;
+}
+
+export const markPaymentFailed = (checkoutRef: string) =>
+  markPaymentTerminal(checkoutRef, "failed");
+export const markPaymentCancelled = (checkoutRef: string) =>
+  markPaymentTerminal(checkoutRef, "cancelled");
+
+/** Payment status for one project (checkoutRef == projectId), or null. */
+export async function getPaymentStatusByProject(
+  projectId: string,
+): Promise<string | null> {
+  const rows = await db
+    .select({ status: payments.status })
+    .from(payments)
+    .where(eq(payments.checkoutRef, projectId))
+    .limit(1);
+  return rows[0]?.status ?? null;
+}
+
+/** Map of projectId → payment status for all of a user's payments. */
+export async function getPaymentStatusesForUser(
+  userId: string,
+): Promise<Record<string, string>> {
+  const rows = await db
+    .select({ projectId: payments.projectId, status: payments.status })
+    .from(payments)
+    .where(eq(payments.userId, userId));
+  const map: Record<string, string> = {};
+  for (const r of rows) if (r.projectId) map[r.projectId] = r.status;
+  return map;
+}
+
+/** Reset a non-succeeded payment back to pending for a retry attempt. */
+export async function resetPaymentPending(checkoutRef: string): Promise<void> {
+  await db
+    .update(payments)
+    .set({ status: "pending", paymentRef: null })
+    .where(and(eq(payments.checkoutRef, checkoutRef), ne(payments.status, "succeeded")));
 }

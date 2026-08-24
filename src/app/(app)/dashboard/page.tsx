@@ -5,11 +5,12 @@ import { limits } from "@/lib/env";
 import { listProjectsForUser } from "@/db/queries/projects";
 import { getTokenTotalsForUser } from "@/db/queries/pipeline";
 import { getProjectsCreated, currentPeriod } from "@/db/queries/usage";
+import { getPaymentStatusesForUser } from "@/db/queries/payments";
 import { Button } from "@/components/ui/button";
 import { StatusChip } from "@/components/ui/chip";
 import { List, ListItem } from "@/components/ui/list";
 import { QuotaChip } from "@/components/quota-chip";
-import { projectChip, canDownload } from "@/lib/project-status";
+import { projectChip, canDownload, type PaymentStatus } from "@/lib/project-status";
 
 /**
  * Dashboard (T-030, FRONTEND-SPEC A6.3). Server Component reading the user's
@@ -17,10 +18,11 @@ import { projectChip, canDownload } from "@/lib/project-status";
  */
 export default async function DashboardPage() {
   const user = await requireUser();
-  const [projects, used, tokenTotals] = await Promise.all([
+  const [projects, used, tokenTotals, paymentStatuses] = await Promise.all([
     listProjectsForUser(user.id),
     getProjectsCreated(user.id, currentPeriod()),
     getTokenTotalsForUser(user.id),
+    getPaymentStatusesForUser(user.id),
   ]);
 
   return (
@@ -44,7 +46,10 @@ export default async function DashboardPage() {
       ) : (
         <List>
           {projects.map((p) => {
-            const chip = projectChip(p.status);
+            const chip = projectChip(
+              p.status,
+              paymentStatuses[p.id] as PaymentStatus | undefined,
+            );
             return (
               <ListItem key={p.id} interactive={false}>
                 <Link
