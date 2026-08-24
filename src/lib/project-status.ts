@@ -12,13 +12,30 @@ export type ProjectStatus =
 
 export type ChipStatus = "default" | "success" | "warning" | "error";
 
-export function projectChip(status: ProjectStatus): {
+export type PaymentStatus =
+  | "pending"
+  | "succeeded"
+  | "failed"
+  | "cancelled"
+  | "refunded";
+
+export function projectChip(
+  status: ProjectStatus,
+  paymentStatus?: PaymentStatus | null,
+): {
   label: string;
   status: ChipStatus;
 } {
+  // A payment_pending project reflects its payment outcome so a failed or
+  // cancelled attempt doesn't read as "still pending".
+  if (status === "payment_pending") {
+    if (paymentStatus === "failed")
+      return { label: "PAYMENT FAILED", status: "error" };
+    if (paymentStatus === "cancelled")
+      return { label: "PAYMENT CANCELLED", status: "warning" };
+    return { label: "PAYMENT PENDING", status: "warning" };
+  }
   switch (status) {
-    case "payment_pending":
-      return { label: "PAYMENT PENDING", status: "warning" };
     case "failed":
       return { label: "FAILED", status: "error" };
     case "complete":

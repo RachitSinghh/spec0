@@ -5,7 +5,11 @@ import { env } from "@/lib/env";
 import { createUnlockCheckout } from "@/lib/dodo";
 import { createProject as createProjectRow, getProjectForUser } from "@/db/queries/projects";
 import { createPipelineRun, seedPipelineSteps } from "@/db/queries/pipeline";
-import { insertPendingPayment } from "@/db/queries/payments";
+import {
+  insertPendingPayment,
+  getPaymentStatusByProject,
+  resetPaymentPending,
+} from "@/db/queries/payments";
 import { ADDON_DOC_TYPES, type AddonDocType } from "@/types";
 
 const PRD_STEPS = [
@@ -73,11 +77,33 @@ export async function beginPaidCheckout(input: {
   return { projectId: project.id, checkoutUrl };
 }
 
-/** Poll target for the checkout return page. */
-export async function getProjectStatus(
+/** Poll target for the checkout return page: project + payment status. */
+export async function getCheckoutOutcome(
   projectId: string,
-): Promise<{ status: string }> {
+): Promise<{ status: string; payment: string | null }> {
   const user = await requireUser();
   const project = await getProjectForUser(projectId, user.id);
-  return { status: project?.status ?? "unknown" };
+  const payment = await getPaymentStatusByProject(projectId);
+  return { status: project?.status ?? "unknown", payment };
+}
+
+/**
+ * Retry payment for an existing payment_pending project: reuse the project,
+ * reset its payment to pending, and open a fresh Dodo checkout. Avoids the
+ * duplicate projects a repeated "unlock from scratch" would create.
+ */
+export async function retryUnlockCheckout(
+  projectId: string,
+): Promise<{ checkoutUrl: string }> {
+  const user = await requireUser();
+  const project = await getProjectForUser(projectId, user.id);
+  if (!project || project.status !== "payment_pending") {
+    throw new Error("This project can't be paid for.");
+  }
+  await resetPaymentPending(projectId);
+  const { checkoutUrl } = await createUnlockCheckout({
+    projectId,
+    userId: user.id,
+  });
+  return { checkoutUrl };
 }

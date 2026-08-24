@@ -84,6 +84,7 @@ export const paymentStatusEnum = pgEnum("payment_status", [
   "succeeded",
   "failed",
   "refunded",
+  "cancelled",
 ]);
 
 // Shared timestamp columns.

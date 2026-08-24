@@ -3,7 +3,7 @@ import { Webhooks } from "@dodopayments/nextjs";
 
 import { env } from "@/lib/env";
 import { unlockPaidProject } from "@/lib/dodo";
-import { markPaymentFailed } from "@/db/queries/payments";
+import { markPaymentFailed, markPaymentCancelled } from "@/db/queries/payments";
 
 /**
  * Dodo webhook. The adaptor verifies the signature (DODO_PAYMENTS_WEBHOOK_KEY).
@@ -57,7 +57,7 @@ const handler = env.DODO_PAYMENTS_WEBHOOK_KEY
       },
       onPaymentCancelled: async (payload) => {
         const { projectId } = ids(payload);
-        if (projectId) await markPaymentFailed(projectId);
+        if (projectId) await markPaymentCancelled(projectId);
       },
       // Processing is a transient pre-terminal state; wait for the terminal event.
       onPaymentProcessing: async () => {
