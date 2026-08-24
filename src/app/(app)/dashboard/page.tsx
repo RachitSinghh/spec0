@@ -5,7 +5,10 @@ import { limits } from "@/lib/env";
 import { listProjectsForUser } from "@/db/queries/projects";
 import { getTokenTotalsForUser } from "@/db/queries/pipeline";
 import { getProjectsCreated, currentPeriod } from "@/db/queries/usage";
-import { getPaymentStatusesForUser } from "@/db/queries/payments";
+import {
+  getPaymentStatusesForUser,
+  expireStalePendingPayments,
+} from "@/db/queries/payments";
 import { Button } from "@/components/ui/button";
 import { StatusChip } from "@/components/ui/chip";
 import { List, ListItem } from "@/components/ui/list";
@@ -18,6 +21,8 @@ import { projectChip, canDownload, type PaymentStatus } from "@/lib/project-stat
  */
 export default async function DashboardPage() {
   const user = await requireUser();
+  // Retire abandoned checkouts first, so an idle payment stops reading as pending.
+  await expireStalePendingPayments(user.id, limits.checkoutExpireHours);
   const [projects, used, tokenTotals, paymentStatuses] = await Promise.all([
     listProjectsForUser(user.id),
     getProjectsCreated(user.id, currentPeriod()),
