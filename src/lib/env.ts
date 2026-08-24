@@ -87,6 +87,8 @@ const serverSchema = z.object({
   FREE_PROJECTS_PER_MONTH: z.coerce.number().int().positive().default(1),
   MAX_REFERENCE_UPLOADS: z.coerce.number().int().positive().default(5),
   MAX_UPLOAD_MB: z.coerce.number().int().positive().default(10),
+  // A pending checkout older than this is treated as abandoned and cancelled.
+  CHECKOUT_EXPIRE_HOURS: z.coerce.number().int().positive().default(3),
 });
 
 export type ServerEnv = z.infer<typeof serverSchema>;
@@ -128,4 +130,5 @@ export const limits = {
   maxReferenceUploads: env.MAX_REFERENCE_UPLOADS,
   maxUploadMb: env.MAX_UPLOAD_MB,
   maxUploadBytes: env.MAX_UPLOAD_MB * 1024 * 1024,
+  checkoutExpireHours: env.CHECKOUT_EXPIRE_HOURS,
 } as const;

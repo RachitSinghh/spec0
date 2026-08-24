@@ -1,5 +1,5 @@
 import "server-only";
-import { eq, and, ne } from "drizzle-orm";
+import { eq, and, ne, lt } from "drizzle-orm";
 
 import { db } from "@/db";
 import { payments, type Payment } from "@/db/schema";
@@ -91,4 +91,27 @@ export async function resetPaymentPending(checkoutRef: string): Promise<void> {
     .update(payments)
     .set({ status: "pending", paymentRef: null })
     .where(and(eq(payments.checkoutRef, checkoutRef), ne(payments.status, "succeeded")));
+}
+
+/**
+ * Mark a user's long-pending checkouts as cancelled (abandoned), so an idle
+ * payment stops reading as "pending". A late success still wins via
+ * markPaymentSucceeded (which only skips an already-succeeded row).
+ * ponytail: cleanup piggybacks on the dashboard read instead of a cron job.
+ */
+export async function expireStalePendingPayments(
+  userId: string,
+  olderThanHours: number,
+): Promise<void> {
+  const cutoff = new Date(Date.now() - olderThanHours * 3_600_000);
+  await db
+    .update(payments)
+    .set({ status: "cancelled" })
+    .where(
+      and(
+        eq(payments.userId, userId),
+        eq(payments.status, "pending"),
+        lt(payments.createdAt, cutoff),
+      ),
+    );
 }
