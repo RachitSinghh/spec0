@@ -83,7 +83,7 @@ function CheckoutReturn() {
   }
 
   return (
-    <p className="font-mono text-small text-content-secondary">
+    <p className="text-center font-mono text-small text-content-secondary">
       {view === "slow"
         ? "Still confirming your payment. If it went through, your project will appear on the dashboard shortly."
         : "Payment received. Starting your spec…"}
@@ -93,16 +93,18 @@ function CheckoutReturn() {
 
 export default function CheckoutSuccessPage() {
   return (
-    <div className="flex max-w-reading flex-col gap-sp-3 p-sp-4">
-      <React.Suspense
-        fallback={
-          <p className="font-mono text-small text-content-secondary">
-            Checking your payment…
-          </p>
-        }
-      >
-        <CheckoutReturn />
-      </React.Suspense>
+    <div className="flex min-h-[70vh] items-center justify-center p-sp-4">
+      <div className="w-full max-w-reading">
+        <React.Suspense
+          fallback={
+            <p className="text-center font-mono text-small text-content-secondary">
+              Checking your payment…
+            </p>
+          }
+        >
+          <CheckoutReturn />
+        </React.Suspense>
+      </div>
     </div>
   );
 }
